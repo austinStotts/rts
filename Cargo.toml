@@ -1,0 +1,13 @@
+[package]
+name = "rts"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+iced_wgpu = "0.12.1"
+iced_widget = "0.12.3"
+iced_winit = "0.12.2"
+tracing-subscriber = "0.3.18"
+
