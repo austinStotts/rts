@@ -72,12 +72,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut modifiers = ModifiersState::default();
     let mut clipboard = Clipboard::connect(&window);
 
-    // Initialize wgpu
-    #[cfg(target_arch = "wasm32")]
-    let default_backend = wgpu::Backends::GL;
-    #[cfg(not(target_arch = "wasm32"))]
-    let default_backend = wgpu::Backends::PRIMARY;
 
+    let default_backend = wgpu::Backends::PRIMARY;
     let backend =
         wgpu::util::backend_bits_from_env().unwrap_or(default_backend);
 
@@ -89,20 +85,15 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (format, adapter, device, queue) =
         futures::futures::executor::block_on(async {
-            let adapter = wgpu::util::initialize_adapter_from_env_or_default(
-                &instance,
-                Some(&surface),
-            )
+            let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            })
             .await
             .expect("Create adapter");
 
             let adapter_features = adapter.features();
-
-            #[cfg(target_arch = "wasm32")]
-            let needed_limits = wgpu::Limits::downlevel_webgl2_defaults()
-                .using_resolution(adapter.limits());
-
-            #[cfg(not(target_arch = "wasm32"))]
             let needed_limits = wgpu::Limits::default();
 
             let capabilities = surface.get_capabilities(&adapter);
@@ -134,6 +125,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
         });
 
+        println!("gpu: {}", adapter.get_info().name);
+
     surface.configure(
         &device,
         &wgpu::SurfaceConfiguration {
@@ -151,7 +144,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut resized = false;
 
     // Initialize scene and GUI controls
-    let scene = Scene::new(&device, format);
+    let scene = Scene::new(&device, format, &queue);
     let controls = Controls::new();
 
     // Initialize iced
