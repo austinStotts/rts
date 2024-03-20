@@ -102,10 +102,10 @@ impl Scene {
         })
     }
 
-    pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, queue: &wgpu::Queue, window_aspect_ratio: f32, params: &[u8]) {
+    pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, queue: &wgpu::Queue, window_aspect_ratio: f32, pan_offset: &[f32; 2], zoom_level: &f32, params: &[u8]) {
 
-        let mut zoom_level: f32 = 1.0;
-        let mut pan_offset = [0.0, 0.0];
+        // let mut zoom_level: f32 = 1.0;
+        // let mut pan_offset = [0.0, 0.0];
 
         let vertex_data = update_vertex_data(&zoom_level, &pan_offset, window_aspect_ratio, self.pipeline.image_aspect_ratio);
         queue.write_buffer(&self.pipeline.vertex_buffer, 0, unsafe {

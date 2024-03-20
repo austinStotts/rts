@@ -9,45 +9,7 @@ use iced_aw::{number_input, style::NumberInputStyles};
 use crate::scene::Parameters;
 
 
-const ZOOM_SPEED: f32 = 0.1;
-// const PAN_SCALAR: f32 = 10000.0;
 
-
-
-
-// fn handle_zoom(delta: &MouseScrollDelta, zoom_level: &mut f32, pan_offset: &[f32; 2], window_aspect_ratio: f32, image_aspect_ratio: f32) -> Vec<Vertex> {
-//     match delta {
-//         MouseScrollDelta::LineDelta(_, y) => {
-//             *zoom_level += y * ZOOM_SPEED;
-//             *zoom_level = zoom_level.clamp(0.1, 10.0); // Clamp the zoom level between 0.1 and 10.0
-//         }
-//         MouseScrollDelta::PixelDelta(PhysicalPosition { y, .. }) => {
-//             *zoom_level -= (*y as f32) * ZOOM_SPEED;
-//             *zoom_level = zoom_level.clamp(0.1, 10.0); // Clamp the zoom level between 0.1 and 10.0
-//         }
-//     }
-
-//     update_vertex_data(zoom_level, pan_offset, window_aspect_ratio, image_aspect_ratio)
-// }
-
-
-
-// fn handle_pan(
-//     curr_mouse_pos: &PhysicalPosition<f64>,
-//     prev_mouse_pos: &mut PhysicalPosition<f64>,
-//     zoom_level: &f32,
-//     pan_offset: &mut [f32; 2],
-// ) {
-//     let panning_speed_factor = 0.005 / *zoom_level;
-
-//     let delta_x = (curr_mouse_pos.x - prev_mouse_pos.x) as f32;
-//     let delta_y = (curr_mouse_pos.y - prev_mouse_pos.y) as f32;
-
-//     pan_offset[0] += delta_x * panning_speed_factor;
-//     pan_offset[1] += -delta_y * panning_speed_factor;
-
-//     *prev_mouse_pos = *curr_mouse_pos;
-// }
 
 
 pub struct Controls {
