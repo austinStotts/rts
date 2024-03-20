@@ -282,7 +282,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 
                             let window_size = window.inner_size();
-                            let window_aspect_ratio = window_size.width as f32 / window_size.height as f32;
+                            let window_aspect_ratio = (window_size.width) as f32 / window_size.height as f32;
+                            let window_position = window.inner_position().unwrap();
                             // let params: Parameters = controls.params();
 
                             
@@ -291,6 +292,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 &mut render_pass,
                                 &queue,
                                 window_aspect_ratio,
+                                window_position.x,
+                                window_position.y,
+                                window_size.width,
+                                window_size.height,
                                 &pan_offset,
                                 &zoom_level,
                                 bytemuck::cast_slice(&[program.params()]),

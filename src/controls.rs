@@ -1,6 +1,6 @@
 use iced_wgpu::core::Font;
 use iced_wgpu::Renderer;
-use iced_widget::{column, container, row, slider, text, text_input, combo_box};
+use iced_widget::{column, container, row, slider, text, text_input, combo_box, pick_list};
 use iced_winit::core::alignment;
 use iced_winit::core::{Color, Element, Length};
 use iced_winit::runtime::{Command, Program};
@@ -180,13 +180,12 @@ impl Program for Controls {
 
         let sliders = column![
             row![
-                combo_box(
-                    &self.shaders,
-                    "pick a shader",
-                    self.selected_shader.as_ref(),
-                    Message::ShaderSelected)
-            ]
-                .width(200).spacing(10),
+                pick_list(
+                    &Shader::ALL[..],
+                    self.selected_shader,
+                    Message::ShaderSelected,
+                )
+            ].width(200).spacing(10),
             row![
                 number_input(sigma1, 10.0, move |v| {
                     Message::Sigma1Changed(v)

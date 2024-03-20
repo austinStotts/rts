@@ -109,6 +109,10 @@ impl Scene {
         &'a self, render_pass: &mut wgpu::RenderPass<'a>,
         queue: &wgpu::Queue,
         window_aspect_ratio: f32,
+        x: i32,
+        y: i32,
+        width: u32, 
+        height: u32,
         pan_offset: &[f32; 2],
         zoom_level: &f32,
         params: &[u8],
@@ -127,7 +131,7 @@ impl Scene {
         let new_parameters_bytes = params;
         queue.write_buffer(&self.pipeline.parameters_buffer, 0, new_parameters_bytes);
 
-
+        // render_pass.set_viewport(x as f32, y as f32, width as f32, height as f32, 0.0, 1.0);
         render_pass.set_pipeline(&self.pipeline.render_pipeline);
         render_pass.set_bind_group(0, &self.pipeline.texture_bind_group, &[]);
         render_pass.set_bind_group(1, &self.pipeline.parameters_bind_group, &[]);
@@ -362,6 +366,7 @@ fn build_pipeline(
         multisample: wgpu::MultisampleState::default(),
         multiview: None,
     });
+
 
     return RenderingPipeline {
         render_pipeline,
