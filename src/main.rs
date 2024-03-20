@@ -2,6 +2,12 @@ mod controls;
 mod scene;
 
 use controls::Controls;
+use iced_wgpu::wgpu::core::id::DeviceId;
+// use iced_winit::winit::event::KeyEvent;
+
+use iced_winit::winit::event;
+use iced_winit::winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
+// use iced_winit::winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use scene::Scene;
 use scene::Parameters;
 
@@ -18,9 +24,10 @@ use iced_winit::runtime::Debug;
 use iced_winit::winit;
 use iced_winit::Clipboard;
 use iced_widget::Theme;
-
+use winit::dpi::{LogicalSize, PhysicalPosition};
+// use winit::event::WindowEvent::KeyboardInput;
 use winit::{
-    event::{Event, WindowEvent},
+    event::{Event, ElementState, WindowEvent, MouseScrollDelta, MouseButton },
     event_loop::{ControlFlow, EventLoop},
     keyboard::ModifiersState,
 };
@@ -35,7 +42,10 @@ struct Vertex {
 
 
 
-
+struct PanState {
+    is_panning: bool,
+    prev_mouse_pos: PhysicalPosition<f64>,
+}
 
 
 
@@ -168,17 +178,18 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut zoom_level: f32 = 1.0;
     let mut pan_offset = [0.0, 0.0];
-    // let mut pan_state = PanState {
-    //     is_panning: false,
-    //     prev_mouse_pos: PhysicalPosition::new(0.0, 0.0),
-    // };
+    let mut pan_state = PanState {
+        is_panning: false,
+        prev_mouse_pos: PhysicalPosition::new(0.0, 0.0),
+    };
 
-    // let mut current_mouse_position = PhysicalPosition::new(0.0, 0.0);
+    let mut current_mouse_position = PhysicalPosition::new(0.0, 0.0);
 
     // Run event loop
     event_loop.run(move |event, window_target| {
         // You should change this if you want to render continuously
         window_target.set_control_flow(ControlFlow::Wait);
+
 
         match event {
             Event::WindowEvent {
@@ -297,9 +308,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                     WindowEvent::CloseRequested => {
                         window_target.exit();
                     }
+                    WindowEvent::KeyboardInput { device_id, event, is_synthetic } => {
+                        println!("a key was pressed");
+                    }
                     _ => {}
                 }
-
                 // Map window event to iced event
                 if let Some(event) = iced_winit::conversion::window_event(
                     window::Id::MAIN,
@@ -309,6 +322,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ) {
                     state.queue_event(event);
                 }
+
             }
             _ => {}
         }
