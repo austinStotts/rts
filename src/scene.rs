@@ -1,6 +1,7 @@
 use iced_wgpu::wgpu::{self, util::DeviceExt};
 use iced_winit::core::Color;
 use image;
+use crate::controls::{self, Shader};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -64,7 +65,8 @@ impl Scene {
     pub fn new(
         device: &wgpu::Device,
         texture_format: wgpu::TextureFormat,
-        queue: &wgpu::Queue
+        queue: &wgpu::Queue,
+        controls: &controls
     ) -> Scene {
         let rendering_pipeline = build_pipeline(device, texture_format, queue);
 
@@ -116,6 +118,7 @@ impl Scene {
         });
 
 
+        // self.pipeline.render_pipeline.vertex.module = device.create_shader_module(wgpu::include_wgsl!("../shaders/flow-based-xdog/vertex.wgsl"));
         
 
         let new_parameters_bytes = params;
@@ -135,10 +138,18 @@ fn build_pipeline(
     device: &wgpu::Device,
     texture_format: wgpu::TextureFormat,
     queue: &wgpu::Queue,
+    shader: Shader,
 ) -> RenderingPipeline {
+
+    
+    // let (vert_module, frag_module) = (
+    //     device.create_shader_module(wgpu::include_wgsl!("../shaders/flow-based-xdog/vertex.wgsl")),
+    //     device.create_shader_module(wgpu::include_wgsl!("../shaders/flow-based-xdog/fragment.wgsl")),
+    // );
+
     let (vert_module, frag_module) = (
-        device.create_shader_module(wgpu::include_wgsl!("../shaders/flow-based-xdog/vertex.wgsl")),
-        device.create_shader_module(wgpu::include_wgsl!("../shaders/flow-based-xdog/fragment.wgsl")),
+        device.create_shader_module(shader.getVertex()),
+        device.create_shader_module(shader.getFragment()),
     );
 
     let vertex_data = [

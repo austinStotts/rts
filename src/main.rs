@@ -193,8 +193,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut resized = false;
 
     // Initialize scene and GUI controls
-    let scene = Scene::new(&device, format, &queue);
     let controls = Controls::new();
+    let scene = Scene::new(&device, format, &queue, &controls);
 
     // Initialize iced
     let mut debug = Debug::new();
