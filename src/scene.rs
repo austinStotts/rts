@@ -3,31 +3,57 @@ use iced_winit::core::Color;
 use image;
 
 #[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Parameters {
+    pub sigma1: f32,
+    pub tau: f32,
+    pub gfact: f32,
+    pub epsilon: f32,
+    pub num_gvf_iterations: i32,
+    pub enable_xdog: u32,
+}
+
+
+
+#[repr(C)]
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
     position: [f32; 2],
     texcoord: [f32; 2], 
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Parameters {
-    // radius1: f32,
-    sigma1: f32,
-    // radius2: f32,
-    // sigma2: f32,
-    tau: f32,
-    gfact: f32,
-    epsilon: f32,
-    num_gvf_iterations: i32,
-    enable_xdog: u32,
+
+
+fn update_vertex_data(zoom_level: &f32, pan_offset: &[f32; 2], window_aspect_ratio: f32, image_aspect_ratio: f32) -> Vec<Vertex> {
+    let mut scale_x = *zoom_level;
+    let mut scale_y = *zoom_level;
+
+    if window_aspect_ratio > image_aspect_ratio {
+        scale_x *= image_aspect_ratio / window_aspect_ratio;
+    } else {
+        scale_y *= window_aspect_ratio / image_aspect_ratio;
+    }
+
+    let vertex_data = [
+        Vertex { position: [-scale_x + pan_offset[0], -scale_y + pan_offset[1]], texcoord: [0.0, 1.0] }, // Bottom-left
+        Vertex { position: [-scale_x + pan_offset[0], scale_y + pan_offset[1]], texcoord: [0.0, 0.0] },  // Top-left
+        Vertex { position: [scale_x + pan_offset[0], scale_y + pan_offset[1]], texcoord: [1.0, 0.0] },   // Top-right
+        Vertex { position: [scale_x + pan_offset[0], scale_y + pan_offset[1]], texcoord: [1.0, 0.0] },   // Top-right (repeated)
+        Vertex { position: [scale_x + pan_offset[0], -scale_y + pan_offset[1]], texcoord: [1.0, 1.0] },  // Bottom-right
+        Vertex { position: [-scale_x + pan_offset[0], -scale_y + pan_offset[1]], texcoord: [0.0, 1.0] }, // Bottom-left (repeated)
+    ].to_vec();
+
+    vertex_data
 }
+
 
 struct RenderingPipeline {
     render_pipeline: wgpu::RenderPipeline,
     texture_bind_group: wgpu::BindGroup,
     parameters_bind_group: wgpu::BindGroup,
+    parameters_buffer: wgpu::Buffer,
     vertex_buffer: wgpu::Buffer,
+    image_aspect_ratio: f32,
 }
 
 pub struct Scene {
@@ -50,6 +76,7 @@ impl Scene {
         encoder: &'a mut wgpu::CommandEncoder,
         background_color: Color,
     ) -> wgpu::RenderPass<'a> {
+
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -75,7 +102,27 @@ impl Scene {
         })
     }
 
-    pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+    pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, queue: &wgpu::Queue, window_aspect_ratio: f32, params: &[u8]) {
+
+        let mut zoom_level: f32 = 1.0;
+        let mut pan_offset = [0.0, 0.0];
+
+        let vertex_data = update_vertex_data(&zoom_level, &pan_offset, window_aspect_ratio, self.pipeline.image_aspect_ratio);
+        queue.write_buffer(&self.pipeline.vertex_buffer, 0, unsafe {
+            std::slice::from_raw_parts(
+                vertex_data.as_ptr() as *const u8,
+                vertex_data.len() * std::mem::size_of::<Vertex>(),
+            )
+        });
+
+
+        
+
+        let new_parameters_bytes = params;
+        queue.write_buffer(&self.pipeline.parameters_buffer, 0, new_parameters_bytes);
+
+
+
         render_pass.set_pipeline(&self.pipeline.render_pipeline);
         render_pass.set_bind_group(0, &self.pipeline.texture_bind_group, &[]);
         render_pass.set_bind_group(1, &self.pipeline.parameters_bind_group, &[]);
@@ -121,6 +168,7 @@ fn build_pipeline(
     // window.set_inner_size(LogicalSize::new(width, height));
     let image_data = image.into_vec();
 
+    let image_aspect_ratio = width as f32 / height as f32;
 
     let image_texture = device.create_texture(
         &wgpu::TextureDescriptor {
@@ -205,12 +253,11 @@ fn build_pipeline(
         ],
     });
 
+    
+
 
     let params = Parameters { 
-        // radius1: 1.0,
         sigma1: 4.75,
-        // radius2: 4.0,
-        // sigma2: 6.0,
         tau: 0.075,
         gfact: 8.0,
         epsilon: 0.0001,
@@ -219,7 +266,7 @@ fn build_pipeline(
     };
 
 
-    let params_buffer = device.create_buffer_init(
+    let parameters_buffer = device.create_buffer_init(
         &wgpu::util::BufferInitDescriptor {
             label: Some("Parameter buffer"),
             contents: bytemuck::cast_slice(&[params]),
@@ -249,7 +296,7 @@ fn build_pipeline(
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
-                resource: params_buffer.as_entire_binding(),
+                resource: parameters_buffer.as_entire_binding(),
             }
         ]
     });
@@ -306,7 +353,9 @@ fn build_pipeline(
         render_pipeline,
         texture_bind_group,
         parameters_bind_group,
+        parameters_buffer,
         vertex_buffer,
+        image_aspect_ratio,
     };
 
 

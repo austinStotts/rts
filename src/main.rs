@@ -3,6 +3,7 @@ mod scene;
 
 use controls::Controls;
 use scene::Scene;
+use scene::Parameters;
 
 use iced_wgpu::graphics::Viewport;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings};
@@ -23,29 +24,32 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     keyboard::ModifiersState,
 };
-
 use std::sync::Arc;
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::JsCast;
-#[cfg(target_arch = "wasm32")]
-use web_sys::HtmlCanvasElement;
-#[cfg(target_arch = "wasm32")]
-use winit::platform::web::WindowBuilderExtWebSys;
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+struct Vertex {
+    position: [f32; 2],
+    texcoord: [f32; 2], 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(target_arch = "wasm32")]
-    let canvas_element = {
-        console_log::init().expect("Initialize logger");
 
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-
-        web_sys::window()
-            .and_then(|win| win.document())
-            .and_then(|doc| doc.get_element_by_id("iced_canvas"))
-            .and_then(|element| element.dyn_into::<HtmlCanvasElement>().ok())
-            .expect("Get canvas element")
-    };
 
     #[cfg(not(target_arch = "wasm32"))]
     tracing_subscriber::fmt::init();
@@ -162,6 +166,15 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         &mut debug,
     );
 
+    let mut zoom_level: f32 = 1.0;
+    let mut pan_offset = [0.0, 0.0];
+    // let mut pan_state = PanState {
+    //     is_panning: false,
+    //     prev_mouse_pos: PhysicalPosition::new(0.0, 0.0),
+    // };
+
+    // let mut current_mouse_position = PhysicalPosition::new(0.0, 0.0);
+
     // Run event loop
     event_loop.run(move |event, window_target| {
         // You should change this if you want to render continuously
@@ -209,6 +222,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             &wgpu::TextureViewDescriptor::default(),
                         );
 
+
                         {
                             // We clear the frame
                             let mut render_pass = Scene::clear(
@@ -217,8 +231,16 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 program.background_color(),
                             );
 
+
+
+
+                            let window_size = window.inner_size();
+                            let window_aspect_ratio = window_size.width as f32 / window_size.height as f32;
+                            // let params: Parameters = controls.params();
+
+                            
                             // Draw the scene
-                            scene.draw(&mut render_pass);
+                            scene.draw(&mut render_pass, &queue, window_aspect_ratio, bytemuck::cast_slice(&[program.params()]));
                         }
 
                         // And then iced on top

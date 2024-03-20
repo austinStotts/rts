@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 bytemuck = "1.15.0"
+iced_aw = "0.8.0"
 iced_wgpu = "0.12.1"
 iced_widget = "0.12.3"
 iced_winit = "0.12.2"
