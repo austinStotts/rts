@@ -17,16 +17,18 @@ use crate::scene::Parameters;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Shader {
     #[default]
+    none,
     invert,
     gaussian_blur,
     quantization,
     sobel_edge_detection,
     difference_of_gaussians_DoG,
-    flow_based_XDoG
+    flow_based_XDoG,
 }
 
 impl Shader {
-    const ALL: [Shader; 6] = [
+    const ALL: [Shader; 7] = [
+        Shader::none,
         Shader::invert,
         Shader::gaussian_blur,
         Shader::quantization,
@@ -37,24 +39,15 @@ impl Shader {
 }
 
 impl Shader {
-    pub fn getVertex(&self) -> ShaderModuleDescriptor<'_> {
+    pub fn getIndex(&self) -> u32 {
         match self {
-            Shader::invert => wgpu::include_wgsl!("../shaders/invert/vertex.wgsl"),
-            Shader::gaussian_blur => wgpu::include_wgsl!("../shaders/gaussian-blur/vertex.wgsl"),
-            Shader::quantization => wgpu::include_wgsl!("../shaders/quantization/vertex.wgsl"),
-            Shader::sobel_edge_detection => wgpu::include_wgsl!("../shaders/sobel-edge-detection/vertex.wgsl"),
-            Shader::difference_of_gaussians_DoG => wgpu::include_wgsl!("../shaders/difference-of-gaussians/vertex.wgsl"),
-            Shader::flow_based_XDoG => wgpu::include_wgsl!("../shaders/flow-based-xdog/vertex.wgsl"),
-        }
-    }
-    pub fn getFragment(&self) -> ShaderModuleDescriptor<'_> {
-        match self {
-            Shader::invert => wgpu::include_wgsl!("../shaders/invert/fragment.wgsl"),
-            Shader::gaussian_blur => wgpu::include_wgsl!("../shaders/gaussian-blur/fragment.wgsl"),
-            Shader::quantization => wgpu::include_wgsl!("../shaders/quantization/fragment.wgsl"),
-            Shader::sobel_edge_detection => wgpu::include_wgsl!("../shaders/sobel-edge-detection/fragment.wgsl"),
-            Shader::difference_of_gaussians_DoG => wgpu::include_wgsl!("../shaders/difference-of-gaussians/fragment.wgsl"),
-            Shader::flow_based_XDoG => wgpu::include_wgsl!("../shaders/flow-based-xdog/fragment.wgsl"),
+            Shader::none => 100,
+            Shader::invert => 0,
+            Shader::gaussian_blur => 1,
+            Shader::quantization => 2,
+            Shader::sobel_edge_detection => 3,
+            Shader::difference_of_gaussians_DoG => 4,
+            Shader::flow_based_XDoG => 5,
         }
     }
 }
@@ -65,6 +58,7 @@ impl std::fmt::Display for Shader {
             f,
             "{}",
             match self {
+                Shader::none => "none",
                 Shader::invert => "invert",
                 Shader::gaussian_blur => "gaussian blur",
                 Shader::quantization => "quantization",
@@ -81,6 +75,7 @@ pub struct Controls {
     pub input: String,
     pub shaders: combo_box::State<Shader>,
     pub selected_shader: Option<Shader>,
+    pub did_change: bool,
     pub sigma1: f32,
     pub tau: f32,
     pub gfact: f32,
@@ -112,14 +107,14 @@ impl Controls {
             background_color: Color::BLACK,
             input: String::default(),
             shaders: combo_box::State::new(Shader::ALL.to_vec()),
-            selected_shader: Some(Shader::invert),
+            selected_shader: Some(Shader::none),
+            did_change: false,
             sigma1: 4.75,
             tau: 0.075,
             gfact: 8.0,
             epsilon: 0.0001,
             num_gvf_iterations: 30,
             enable_xdog: 1,
-
         }
     }
 
@@ -135,6 +130,7 @@ impl Controls {
             epsilon: self.epsilon,
             num_gvf_iterations: self.num_gvf_iterations,
             enable_xdog: self.enable_xdog,
+            shader_index: self.selected_shader.unwrap().getIndex(),
         }
     }
 }
@@ -153,7 +149,7 @@ impl Program for Controls {
                 self.input = input;
             }
             Message::ShaderSelected(shader) => {
-                self.selected_shader = Some(shader)
+                self.selected_shader = Some(shader);
             }
             Message::Sigma1Changed(v) => {
                 self.sigma1 = v;

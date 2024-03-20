@@ -1,4 +1,4 @@
-use iced_wgpu::wgpu::{self, util::DeviceExt};
+use iced_wgpu::wgpu::{self, util::DeviceExt, RenderPass};
 use iced_winit::core::Color;
 use image;
 use crate::controls::{self, Shader};
@@ -12,6 +12,7 @@ pub struct Parameters {
     pub epsilon: f32,
     pub num_gvf_iterations: i32,
     pub enable_xdog: u32,
+    pub shader_index: u32,
 }
 
 
@@ -66,9 +67,9 @@ impl Scene {
         device: &wgpu::Device,
         texture_format: wgpu::TextureFormat,
         queue: &wgpu::Queue,
-        controls: &controls
+        shader: Option<Shader>,
     ) -> Scene {
-        let rendering_pipeline = build_pipeline(device, texture_format, queue);
+        let rendering_pipeline = build_pipeline(device, texture_format, queue, shader.unwrap());
 
         Scene { pipeline: rendering_pipeline }
     }
@@ -104,11 +105,16 @@ impl Scene {
         })
     }
 
-    pub fn draw<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, queue: &wgpu::Queue, window_aspect_ratio: f32, pan_offset: &[f32; 2], zoom_level: &f32, params: &[u8]) {
+    pub fn draw<'a>(
+        &'a self, render_pass: &mut wgpu::RenderPass<'a>,
+        queue: &wgpu::Queue,
+        window_aspect_ratio: f32,
+        pan_offset: &[f32; 2],
+        zoom_level: &f32,
+        params: &[u8],
+    ) {
 
-        // let mut zoom_level: f32 = 1.0;
-        // let mut pan_offset = [0.0, 0.0];
-
+        // UPDATE VERTEX CANVAS POSITION
         let vertex_data = update_vertex_data(&zoom_level, &pan_offset, window_aspect_ratio, self.pipeline.image_aspect_ratio);
         queue.write_buffer(&self.pipeline.vertex_buffer, 0, unsafe {
             std::slice::from_raw_parts(
@@ -117,13 +123,9 @@ impl Scene {
             )
         });
 
-
-        // self.pipeline.render_pipeline.vertex.module = device.create_shader_module(wgpu::include_wgsl!("../shaders/flow-based-xdog/vertex.wgsl"));
-        
-
+        // UPDATE PARAMETERS
         let new_parameters_bytes = params;
         queue.write_buffer(&self.pipeline.parameters_buffer, 0, new_parameters_bytes);
-
 
 
         render_pass.set_pipeline(&self.pipeline.render_pipeline);
@@ -148,8 +150,8 @@ fn build_pipeline(
     // );
 
     let (vert_module, frag_module) = (
-        device.create_shader_module(shader.getVertex()),
-        device.create_shader_module(shader.getFragment()),
+        device.create_shader_module(wgpu::include_wgsl!("../shaders/vertex.wgsl")),
+        device.create_shader_module(wgpu::include_wgsl!("../shaders/fragment.wgsl")),
     );
 
     let vertex_data = [
@@ -274,6 +276,7 @@ fn build_pipeline(
         epsilon: 0.0001,
         num_gvf_iterations: 30,
         enable_xdog: 1,
+        shader_index: 0,
     };
 
 

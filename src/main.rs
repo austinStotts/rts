@@ -5,6 +5,7 @@ use controls::Controls;
 use iced_wgpu::wgpu::core::id::DeviceId;
 // use iced_winit::winit::event::KeyEvent;
 
+use iced_wgpu::wgpu::core::validation::check_texture_format;
 use iced_winit::winit::event;
 use iced_winit::winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 // use iced_winit::winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
@@ -194,7 +195,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize scene and GUI controls
     let controls = Controls::new();
-    let scene = Scene::new(&device, format, &queue, &controls);
+    let scene = Scene::new(&device, format, &queue, controls.selected_shader);
 
     // Initialize iced
     let mut debug = Debug::new();
@@ -286,7 +287,14 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             
                             // Draw the scene
-                            scene.draw(&mut render_pass, &queue, window_aspect_ratio, &pan_offset, &zoom_level, bytemuck::cast_slice(&[program.params()]));
+                            scene.draw(
+                                &mut render_pass,
+                                &queue,
+                                window_aspect_ratio,
+                                &pan_offset,
+                                &zoom_level,
+                                bytemuck::cast_slice(&[program.params()]),
+                            );
                         }
 
                         // And then iced on top
