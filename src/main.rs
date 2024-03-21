@@ -1,6 +1,8 @@
 mod controls;
 mod scene;
 
+// use iced::{window}
+
 use controls::Controls;
 use iced_wgpu::wgpu::core::device;
 use iced_wgpu::wgpu::core::id::DeviceId;
@@ -114,6 +116,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(target_arch = "wasm32"))]
     let window = winit::window::Window::new(&event_loop)?;
     window.set_title("real time shaders");
+
 
     let window = Arc::new(window);
 
@@ -460,9 +463,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             print!("SPACE!!");
                             zoom_level = 1.0;
                             pan_offset = [0.0, 0.0];
-                        } else if event.text.as_slice() == &["s"] {
-                            save_screen = true;
-                        }
+                        } 
                     }
                     _ => {}
                 }

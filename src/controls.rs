@@ -1,4 +1,6 @@
+
 use iced_wgpu::core::Font;
+use iced_wgpu::graphics::text::cosmic_text::fontdb::ID;
 use iced_wgpu::Renderer;
 use iced_widget::{button, column, combo_box, component, container, pick_list, row, slider, text, text_input};
 use iced_winit::core::alignment;
@@ -7,11 +9,19 @@ use iced_winit::runtime::{Command, Program};
 use iced_widget::Theme;
 use iced_aw::{number_input, style::NumberInputStyles, SelectionList, style::SelectionListStyles};
 use iced_wgpu::wgpu::{self, util::DeviceExt, ShaderModuleDescriptor};
+use image::codecs::png;
 use image::imageops::replace;
-
+use iced::window;
+use image::Rgba;
 use crate::scene::Parameters;
 use rfd;
+use iced_winit::winit;
 
+
+
+
+
+use win_screenshot;
 
 
 // struct ImageLocation {
@@ -83,6 +93,7 @@ pub struct Controls {
     pub selected_shader: Option<Shader>,
     pub selected_image: String,
     pub did_change: bool,
+    pub show_ui: bool,
     pub sigma1: f32,
     pub tau: f32,
     pub gfact: f32,
@@ -101,6 +112,8 @@ pub enum Message {
     IsFactChanged(i32),
     ShaderSelected(Shader),
     ImageChanger(),
+    TakeScreenshot(),
+    ToggleUI(),
 }
 
 impl Controls {
@@ -118,6 +131,7 @@ impl Controls {
             selected_shader: Some(Shader::none),
             selected_image: String::from("C:/Users/astotts/rust/renderer/images/cat.png"),
             did_change: false,
+            show_ui: true,
             sigma1: 4.75,
             tau: 0.075,
             gfact: 8.0,
@@ -182,6 +196,28 @@ impl Program for Controls {
                 self.selected_image = str::replace(&dialog, '\\', "/");
                 self.did_change = true;
             }
+            Message::TakeScreenshot() => {
+
+                // async fn foo() {
+                //     println!("The Future will be ready after some time");
+                //     set_timeout(Duration::from_secs(5)).await;
+                //     println!("Now, it is ready");
+                //   }
+                  
+                //   block_on(foo());
+                
+                let window_buffer = win_screenshot::capture::capture_window(win_screenshot::utils::find_window("real time shaders").unwrap());
+                match window_buffer {
+                    Ok(RgbBuf) => {
+                        image::save_buffer("./render.png", &RgbBuf.pixels, RgbBuf.width, RgbBuf.height, image::ColorType::Rgba8);
+                    } Err(Error) => {
+                        println!("could not get window")
+                    }
+                }
+            }
+            Message::ToggleUI() => {
+                self.show_ui = !self.show_ui;
+            }
         }
 
         Command::none()
@@ -233,19 +269,25 @@ impl Program for Controls {
         ]
         .width(500)
         .spacing(2);
+        let c = self.selected_image.split('/').last().unwrap();
 
-        let image_loader = row![button(self.selected_image.as_ref()).on_press(Message::ImageChanger())].width(500).spacing(2);
+        let image_loader = row![button("save").on_press(Message::TakeScreenshot()),button(c).on_press(Message::ImageChanger())].width(500).spacing(2);
+        // ,button("toggle ui").on_press(Message::ToggleUI())
+        if self.show_ui {
+            container(
+                column![
+                container(column![image_loader].spacing(10))
+                    .padding(10)
+                    .height(Length::Fill)
+                    .align_y(alignment::Vertical::Top),
+                container(column![shader_controls].spacing(10))
+                    .padding(10)
+                    .height(Length::Fill)
+                    .align_y(alignment::Vertical::Bottom)
+            ]).into()
+        } else {
+            container(row![]).into()
+        }
 
-        container(
-            column![
-            container(column![image_loader].spacing(10))
-                .padding(10)
-                .height(Length::Fill)
-                .align_y(alignment::Vertical::Bottom),
-            container(column![shader_controls].spacing(10))
-                .padding(10)
-                .height(Length::Fill)
-                .align_y(alignment::Vertical::Bottom)
-        ]).into()
     }
 }
