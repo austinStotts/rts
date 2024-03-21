@@ -1,6 +1,6 @@
 # rts - real time shaders
 
-a interactive shader environment  
+an interactive shader environment  
 made with rust and wgpu
 
 ##
