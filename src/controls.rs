@@ -1,18 +1,23 @@
 use iced_wgpu::core::Font;
 use iced_wgpu::Renderer;
-use iced_widget::{column, container, row, slider, text, text_input, combo_box, pick_list};
+use iced_widget::{button, column, combo_box, component, container, pick_list, row, slider, text, text_input};
 use iced_winit::core::alignment;
 use iced_winit::core::{Color, Element, Length};
 use iced_winit::runtime::{Command, Program};
 use iced_widget::Theme;
 use iced_aw::{number_input, style::NumberInputStyles, SelectionList, style::SelectionListStyles};
 use iced_wgpu::wgpu::{self, util::DeviceExt, ShaderModuleDescriptor};
+use image::imageops::replace;
 
 use crate::scene::Parameters;
+use rfd;
 
 
 
-
+// struct ImageLocation {
+//     location: String,
+//     name: String,
+// }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Shader {
@@ -70,11 +75,13 @@ impl std::fmt::Display for Shader {
     }
 }
 
+// #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Controls {
     pub background_color: Color,
     pub input: String,
     pub shaders: combo_box::State<Shader>,
     pub selected_shader: Option<Shader>,
+    pub selected_image: String,
     pub did_change: bool,
     pub sigma1: f32,
     pub tau: f32,
@@ -93,6 +100,7 @@ pub enum Message {
     GFactChanged(f32),
     IsFactChanged(i32),
     ShaderSelected(Shader),
+    ImageChanger(),
 }
 
 impl Controls {
@@ -108,6 +116,7 @@ impl Controls {
             input: String::default(),
             shaders: combo_box::State::new(Shader::ALL.to_vec()),
             selected_shader: Some(Shader::none),
+            selected_image: String::from("C:/Users/astotts/rust/renderer/images/cat.png"),
             did_change: false,
             sigma1: 4.75,
             tau: 0.075,
@@ -116,6 +125,10 @@ impl Controls {
             num_gvf_iterations: 30,
             enable_xdog: 1,
         }
+    }
+
+    pub fn update_did_change(&mut self, v: bool) {
+        self.did_change = v; 
     }
 
     pub fn background_color(&self) -> Color {
@@ -163,6 +176,12 @@ impl Program for Controls {
             Message::IsFactChanged(v) => {
                 self.num_gvf_iterations = v;
             }
+            Message::ImageChanger() => {
+                println!("IMAGE CHANGER");
+                let dialog = rfd::FileDialog::new().pick_file().unwrap().into_os_string().into_string().unwrap();
+                self.selected_image = str::replace(&dialog, '\\', "/");
+                self.did_change = true;
+            }
         }
 
         Command::none()
@@ -177,8 +196,9 @@ impl Program for Controls {
         let num_gvf_iterations = self.num_gvf_iterations;
         let enable_xdog = self.enable_xdog;
         let selected_shader = self.selected_shader;
+        // let selected_image = self.selected_image;
 
-        let sliders = column![
+        let shader_controls = column![
             row![
                 pick_list(
                     &Shader::ALL[..],
@@ -214,15 +234,18 @@ impl Program for Controls {
         .width(500)
         .spacing(2);
 
+        let image_loader = row![button(self.selected_image.as_ref()).on_press(Message::ImageChanger())].width(500).spacing(2);
+
         container(
             column![
-                sliders,
-            ]
-            .spacing(10),
-        )
-        .padding(10)
-        .height(Length::Fill)
-        .align_y(alignment::Vertical::Bottom)
-        .into()
+            container(column![image_loader].spacing(10))
+                .padding(10)
+                .height(Length::Fill)
+                .align_y(alignment::Vertical::Bottom),
+            container(column![shader_controls].spacing(10))
+                .padding(10)
+                .height(Length::Fill)
+                .align_y(alignment::Vertical::Bottom)
+        ]).into()
     }
 }

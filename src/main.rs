@@ -2,12 +2,17 @@ mod controls;
 mod scene;
 
 use controls::Controls;
+use iced_wgpu::wgpu::core::device;
 use iced_wgpu::wgpu::core::id::DeviceId;
 // use iced_winit::winit::event::KeyEvent;
 
 use iced_wgpu::wgpu::core::validation::check_texture_format;
+use iced_wgpu::wgpu::hal::empty::Encoder;
+use iced_wgpu::wgpu::ImageCopyTextureBase;
+use iced_wgpu::wgpu::Texture;
 use iced_winit::winit::event;
 use iced_winit::winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
+use image::RgbaImage;
 // use iced_winit::winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use scene::Scene;
 use scene::Parameters;
@@ -40,7 +45,6 @@ struct Vertex {
     position: [f32; 2],
     texcoord: [f32; 2], 
 }
-
 
 
 struct PanState {
@@ -192,10 +196,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let mut resized = false;
+    let mut save_screen = false;
 
     // Initialize scene and GUI controls
-    let controls = Controls::new();
-    let scene = Scene::new(&device, format, &queue, controls.selected_shader);
+    let mut controls = Controls::new();
+    let mut scene = Scene::new(&device, format, &queue, controls.selected_shader);
 
     // Initialize iced
     let mut debug = Debug::new();
@@ -220,6 +225,63 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut current_mouse_position = PhysicalPosition::new(0.0, 0.0);
+
+    fn padded_bytes_per_row(width: u32) -> usize {
+        let bytes_per_row = width as usize * 4;
+        let padding = (256 - bytes_per_row % 256) % 256;
+        bytes_per_row + padding
+    }
+
+    // fn save_image(device: &wgpu::Device, queue: &wgpu::Queue, encoder: &wgpu::CommandEncoder, texture: Texture) {
+    //     let size = texture.size();
+
+
+
+    //     let output_texture = device.create_texture(&wgpu::TextureDescriptor {
+    //         label: Some("output texture"),
+    //         size: size,
+    //         mip_level_count: 1,
+    //         sample_count: 1,
+    //         dimension: wgpu::TextureDimension::D2,
+    //         format: wgpu::TextureFormat::Rgba8Unorm,
+    //         usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::STORAGE_BINDING,
+    //         view_formats: &[wgpu::TextureFormat::Rgba8UnormSrgb],
+    //     });
+
+
+    //     let padded_bytes_per_row = padded_bytes_per_row(size.width);
+    //     let unpadded_bytes_per_row = size.width as usize * 4;
+    
+    //     let output_buffer_size =
+    //         padded_bytes_per_row as u64 * size.height as u64 * std::mem::size_of::<u8>() as u64;
+    //     let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+    //         label: None,
+    //         size: output_buffer_size,
+    //         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+    //         mapped_at_creation: false,
+    //     });
+
+
+    //     encoder.copy_texture_to_buffer(
+    //         wgpu::ImageCopyTexture {
+    //             aspect: wgpu::TextureAspect::All,
+    //             texture: &output_texture,
+    //             mip_level: 0,
+    //             origin: wgpu::Origin3d::ZERO,
+    //         },
+    //         wgpu::ImageCopyBuffer {
+    //             buffer: &output_buffer,
+    //             layout: wgpu::ImageDataLayout {
+    //                 offset: 0,
+    //                 bytes_per_row: std::option::Option::Some(padded_bytes_per_row as u32),
+    //                 rows_per_image: std::option::Option::Some(size.height),
+    //             },
+    //         },
+    //         size,
+    //     );
+
+    //     queue.submit(std::iter::once(encoder.finish()));
+    // }
 
     // Run event loop
     event_loop.run(move |event, window_target| {
@@ -269,6 +331,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             &wgpu::TextureViewDescriptor::default(),
                         );
 
+                        // let texture: Texture;
 
                         {
                             // We clear the frame
@@ -286,11 +349,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let window_position = window.inner_position().unwrap();
                             // let params: Parameters = controls.params();
 
-                            
+                            // println!("{}", program.did_change);
+
                             // Draw the scene
                             scene.draw(
                                 &mut render_pass,
                                 &queue,
+                                &device,
                                 window_aspect_ratio,
                                 window_position.x,
                                 window_position.y,
@@ -299,8 +364,16 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 &pan_offset,
                                 &zoom_level,
                                 bytemuck::cast_slice(&[program.params()]),
-                            );
+                                &program.selected_image,
+                            )
+
+                            
+
+
+
+
                         }
+                        
 
                         // And then iced on top
                         renderer.with_primitives(|backend, primitive| {
@@ -318,11 +391,15 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                         });
 
                         // Then we submit the work
+                    
+                    
+                
                         queue.submit(Some(encoder.finish()));
+                        
                         frame.present();
 
                         // Update the mouse cursor
-                        window.set_cursor_icon(
+                       window.set_cursor_icon(
                             iced_winit::conversion::mouse_interaction(
                                 state.mouse_interaction(),
                             ),
@@ -383,6 +460,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             print!("SPACE!!");
                             zoom_level = 1.0;
                             pan_offset = [0.0, 0.0];
+                        } else if event.text.as_slice() == &["s"] {
+                            save_screen = true;
                         }
                     }
                     _ => {}

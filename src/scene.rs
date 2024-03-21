@@ -3,6 +3,7 @@ use iced_winit::core::Color;
 use image;
 use crate::controls::{self, Shader};
 
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Parameters {
@@ -13,6 +14,11 @@ pub struct Parameters {
     pub num_gvf_iterations: i32,
     pub enable_xdog: u32,
     pub shader_index: u32,
+}
+
+
+pub struct ImageBufferHolder {
+    buffer: wgpu::Buffer,
 }
 
 
@@ -51,6 +57,7 @@ fn update_vertex_data(zoom_level: &f32, pan_offset: &[f32; 2], window_aspect_rat
 
 struct RenderingPipeline {
     render_pipeline: wgpu::RenderPipeline,
+    texture_bind_group_layout: wgpu::BindGroupLayout,
     texture_bind_group: wgpu::BindGroup,
     parameters_bind_group: wgpu::BindGroup,
     parameters_buffer: wgpu::Buffer,
@@ -60,6 +67,7 @@ struct RenderingPipeline {
 
 pub struct Scene {
     pipeline: RenderingPipeline,
+    rendering_image: String,
 }
 
 impl Scene {
@@ -69,9 +77,12 @@ impl Scene {
         queue: &wgpu::Queue,
         shader: Option<Shader>,
     ) -> Scene {
-        let rendering_pipeline = build_pipeline(device, texture_format, queue, shader.unwrap());
+        let (rendering_pipeline, rendering_image) = build_pipeline(device, texture_format, queue, shader.unwrap());
 
-        Scene { pipeline: rendering_pipeline }
+        Scene { 
+            pipeline: rendering_pipeline,
+            rendering_image
+        }
     }
 
     pub fn clear<'a>(
@@ -105,9 +116,15 @@ impl Scene {
         })
     }
 
+    pub fn update_texture_bind_group(&mut self, texture_bind_group_layout: wgpu::BindGroupLayout, texture_bind_group: wgpu::BindGroup) {
+        self.pipeline.texture_bind_group_layout = texture_bind_group_layout;
+        self.pipeline.texture_bind_group = texture_bind_group;
+    }
+
     pub fn draw<'a>(
-        &'a self, render_pass: &mut wgpu::RenderPass<'a>,
+        &'a mut self, render_pass: &mut wgpu::RenderPass<'a>,
         queue: &wgpu::Queue,
+        device: &wgpu::Device,
         window_aspect_ratio: f32,
         x: i32,
         y: i32,
@@ -116,7 +133,107 @@ impl Scene {
         pan_offset: &[f32; 2],
         zoom_level: &f32,
         params: &[u8],
+        image_file: &str,
     ) {
+
+        
+        if image_file != self.rendering_image {
+
+            self.rendering_image = String::from(image_file);
+
+            let img = image::open(image_file).expect("failed to open image");
+            let img_ = img.to_rgba8();
+            let (mut width, mut height) = img_.dimensions();
+            let image = img.resize(width, height, image::imageops::FilterType::Gaussian).to_rgba8();
+            let image_data = image.into_vec();
+        
+            let image_aspect_ratio = width as f32 / height as f32;
+            self.pipeline.image_aspect_ratio = image_aspect_ratio;
+        
+            let image_texture = device.create_texture(
+                &wgpu::TextureDescriptor {
+                    label: Some("Image Texture"),
+                    size: wgpu::Extent3d {
+                        width,
+                        height,
+                        depth_or_array_layers: 1
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                    view_formats: &[wgpu::TextureFormat::Rgba8UnormSrgb],
+                }
+            );
+        
+            queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    texture: &image_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All
+                },
+                &image_data,
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * width),
+                    rows_per_image: Some(height),
+                },
+                wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1
+                },
+            );
+
+            let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Texture Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
+            let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Texture Bind Group"),
+                layout: &texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&image_texture.create_view(&wgpu::TextureViewDescriptor::default())),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&device.create_sampler(&wgpu::SamplerDescriptor {
+                            address_mode_u: wgpu::AddressMode::ClampToEdge,
+                            address_mode_v: wgpu::AddressMode::ClampToEdge,
+                            mag_filter: wgpu::FilterMode::Linear,
+                            min_filter: wgpu::FilterMode::Nearest,
+                            mipmap_filter: wgpu::FilterMode::Nearest,
+                            ..Default::default()
+                        })),
+                    },
+                ],
+            });
+
+            &self.update_texture_bind_group(texture_bind_group_layout, texture_bind_group);
+
+        }
 
         // UPDATE VERTEX CANVAS POSITION
         let vertex_data = update_vertex_data(&zoom_level, &pan_offset, window_aspect_ratio, self.pipeline.image_aspect_ratio);
@@ -137,6 +254,8 @@ impl Scene {
         render_pass.set_bind_group(1, &self.pipeline.parameters_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.pipeline.vertex_buffer.slice(..));
         render_pass.draw(0..6, 0..1);
+
+        
     }
 }
 
@@ -145,7 +264,7 @@ fn build_pipeline(
     texture_format: wgpu::TextureFormat,
     queue: &wgpu::Queue,
     shader: Shader,
-) -> RenderingPipeline {
+) -> (RenderingPipeline, String) {
 
     
     // let (vert_module, frag_module) = (
@@ -178,7 +297,8 @@ fn build_pipeline(
         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
     });
 
-    let img = image::load_from_memory(include_bytes!("../images/cat.png")).unwrap();
+    // let img = image::load_from_memory(include_bytes!("../images/cat.png")).unwrap();
+    let img = image::open("C:/Users/astotts/rust/renderer/images/cat.png").expect("failed to open image");
     let img_ = img.to_rgba8();
     let (mut width, mut height) = img_.dimensions();
     let image = img.resize(width, height, image::imageops::FilterType::Gaussian).to_rgba8();
@@ -368,14 +488,15 @@ fn build_pipeline(
     });
 
 
-    return RenderingPipeline {
+    return (RenderingPipeline {
         render_pipeline,
+        texture_bind_group_layout,
         texture_bind_group,
         parameters_bind_group,
         parameters_buffer,
         vertex_buffer,
         image_aspect_ratio,
-    };
+    }, String::from("C:/Users/astotts/rust/renderer/images/cat.png"));
 
 
     // device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
