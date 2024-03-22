@@ -399,39 +399,6 @@ fn frag_main(@location(0) texcoord: vec2<f32>) -> @location(0) vec4<f32> {
         //          bayer dithering
 
 
-        // var color = textureSample(inputTexture, sampler0, texcoord);
-        // var ts = vec2<f32>(textureDimensions(inputTexture));
-
-        // var bayer_matrix = array<vec4<f32>, 4>(
-        //     vec4<f32>( 1.0, 0.5, 0.3, 0.1 ),
-        //     vec4<f32>( 0.7, 0.5, 0.9, 1.0 ),
-        //     vec4<f32>( 0.1, 0.3, 0.3, 0.5 ),
-        //     vec4<f32>( 0.1, 1.0, 0.7, 1.0 ),
-        // );
-        
-        // var coord = floor(texcoord * ts);
-        // var tx = i32(f32(coord.x) % (2.0 * f32(ts.x)));
-        // var ty = i32(f32(coord.y) % (2.0 * f32(ts.y)));
-        // var indexx = (tx % 4);
-        // var indexy = (ty % 4);
-
-
-        // var dither = bayer_matrix[indexy][indexx];
-
-        // var fc = vec3<f32>(
-        //     max(min(color.r + dither - 0.5, 1.0), 0.0),
-        //     max(min(color.g + dither - 0.5, 1.0), 0.0),
-        //     max(min(color.b + dither - 0.5, 1.0), 0.0),
-        // );
-
-
-        // if(color.a < params.tau) {
-        //     return color;
-        // } else {
-        //     return vec4<f32>(fc, color.a);
-        // }
-        
-        // Bayer dithering matrix (4x4)
         var ditherMatrix = array<vec4<f32>, 4>(
             vec4<f32>( 1.0/16.0,  9.0/16.0,  3.0/16.0, 11.0/16.0),
             vec4<f32>(13.0/16.0,  5.0/16.0, 15.0/16.0,  7.0/16.0),
@@ -442,12 +409,33 @@ fn frag_main(@location(0) texcoord: vec2<f32>) -> @location(0) vec4<f32> {
         let td = textureDimensions(inputTexture);
         var color = textureSample(inputTexture, sampler0, texcoord);
 
-        
-        var matrix_index = vec2<i32>(vec2<i32>(texcoord.xy / 4.0));
-        var threshold = ditherMatrix[matrix_index.y][matrix_index.x];
+        var y0 = texcoord.y * f32(td.y);
+        var y1 = y0 % f32(td.y);
+        var y2 = y1 % 4.0;
+        var y = y2 / 4.0;
 
+        var x0 = texcoord.x * f32(td.x);
+        var x1 = x0 % f32(td.x);
+        var x2 = x1 % 4.0;
+        var x = x2 / 4.0;
 
-        return vec4<f32>(threshold,0.0,0.0, 1.0);
+        // var x1 = texcoord.x / f32(td.x);
+        // var x2 = x1 * 4.0;
+        // var x = i32(floor(x2));
+
+        // var coords = texcoord / vec2<f32>(td);
+        // var matrix_coords = coords * 4.0;
+        // var fcoords = vec2<i32>(floor(matrix_coords));
+
+        var threshold = ditherMatrix[i32(y2)][i32(x2)];
+        var out = color * threshold;
+
+        var luminance = (color.rgb * vec3<f32>(0.2126, 0.7152, 0.0722));
+
+        var ditherFactor = clamp(vec3<f32>(1.0) - luminance, vec3<f32>(0.0), vec3<f32>(1.0));
+        var quantcolor = clamp(((color - threshold) * vec4<f32>(ditherFactor) * vec4<f32>(params.tau)), vec4<f32>(0.0), vec4<f32>(1.0));
+
+        return vec4<f32>(quantcolor.r,quantcolor.g,quantcolor.b,1.0);
     
     
     }

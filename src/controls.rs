@@ -94,7 +94,9 @@ impl Shader {
                 row![number_input(controls.num_gvf_iterations, 30, move |v| {Message::IsFactChanged(v)}).step(1),text("iterations"),].width(500).spacing(10)
             ]),
             Shader::edge_direction => container(column![]),
-            Shader::bayer_dither => container(column![]),
+            Shader::bayer_dither => container(column![
+                row![number_input(controls.tau, 1.0, move |v| {Message::TauChanged(v)}).step(0.1),text("tau"),].width(500).spacing(10),
+            ]),
         }
     }
 }
