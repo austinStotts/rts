@@ -1,0 +1,14 @@
+// 10. Apply dithering to red, green, and blue channels (adjust blue channel dithering for different effects)
+var fc = vec3<f32>(
+  max(min(color.r + dither - ditherThreshold, 1.0), 0.0),
+  max(min(color.g + dither - ditherThreshold, 1.0), 0.0),
+  max(min(color.b + dither * 0.5, 1.0), 0.0) // Adjust dither factor for blue channel here
+);
+
+// 11. Check for alpha transparency (optional)
+if (color.a < params.tau) {
+  return color; // Don't modify completely transparent pixels
+} else {
+  // 12. Return the modified color with alpha preserved
+  return vec4<f32>(fc, color.a);
+}
