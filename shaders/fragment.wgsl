@@ -344,7 +344,95 @@ fn frag_main(@location(0) texcoord: vec2<f32>) -> @location(0) vec4<f32> {
 
 
         return vec4<f32>(color.r, color.g, color.b, 1.0);
-    } 
+    } else if (params.shader_index == 6u) {
+
+
+        // *******************************************
+        //       edge directions
+
+        var color = textureSample(inputTexture, sampler0, texcoord);
+        var original_color = color;
+
+        var sigma2 = params.sigma1 / 16.0;
+        var radius1 = params.sigma1 * 3.0;
+        var radius2 = sigma2 * 2.0;
+
+        if (params.enable_xdog == 1u) {
+            // Gradient calculation using Sobel operators
+            var sobel_x = array<vec3<f32>, 3>(
+                vec3<f32>(-1.0, 0.0, 1.0),
+                vec3<f32>(-2.0, 0.0, 2.0),
+                vec3<f32>(-1.0, 0.0, 1.0)
+            ); 
+
+            var sobel_y = array<vec3<f32>, 3>(
+                vec3<f32>(-1.0, -2.0, -1.0),
+                vec3<f32>( 0.0,  0.0,  0.0),
+                vec3<f32>( 1.0,  2.0,  1.0)
+            );
+
+            var dx = 0.0;
+            var dy = 0.0;
+
+            for (var i: i32 = -1; i <= 1; i++) {
+                for (var j: i32 = -1; j <= 1; j++) {
+                    var offset : vec2<f32> = vec2<f32>(f32(i), f32(j)) / vec2<f32>(textureDimensions(inputTexture));          
+                    var sampleColor = textureSample(inputTexture, sampler0, texcoord + offset);
+                    dx += sampleColor.r * sobel_x[i + 1][j + 1]; 
+                    dy += sampleColor.r * sobel_y[i + 1][j + 1];
+                }
+            }        
+
+            color.r = dx-dy;
+            color.g = dx;
+            color.b = dy;
+
+        } // ...
+        
+
+
+        return vec4<f32>(color.r, color.g, color.b, 1.0);
+    } else if (params.shader_index == 7u) {
+
+
+        // *******************************************
+        //          bayer dithering
+
+
+        var color = textureSample(inputTexture, sampler0, texcoord);
+        var ts = vec2<f32>(textureDimensions(inputTexture));
+
+        var bayer_matrix = array<vec4<f32>, 4>(
+            vec4<f32>( 1.0, 0.5, 0.3, 0.1 ),
+            vec4<f32>( 0.7, 0.5, 0.9, 1.0 ),
+            vec4<f32>( 0.1, 0.3, 0.3, 0.5 ),
+            vec4<f32>( 0.1, 1.0, 0.7, 1.0 ),
+        );
+        
+        var coord = floor(texcoord * ts);
+        var tx = i32(f32(coord.x) % (2.0 * f32(ts.x)));
+        var ty = i32(f32(coord.y) % (2.0 * f32(ts.y)));
+        var indexx = (tx % 4);
+        var indexy = (ty % 4);
+
+
+        var dither = bayer_matrix[indexy][indexx];
+
+        var fc = vec3<f32>(
+            max(min(color.r + dither - 0.5, 1.0), 0.0),
+            max(min(color.g + dither - 0.5, 1.0), 0.0),
+            max(min(color.b + dither - 0.5, 1.0), 0.0),
+        );
+
+
+        if(color.a < params.tau) {
+            return color;
+        } else {
+            return vec4<f32>(fc, color.a);
+        }
+        
+    
+    }
     else {
         return textureSample(inputTexture, sampler0, texcoord);
     }

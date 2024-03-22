@@ -1,6 +1,8 @@
 
+use std::path::Component;
+
 use iced_wgpu::core::Font;
-use iced_wgpu::graphics::text::cosmic_text::fontdb::ID;
+
 use iced_wgpu::Renderer;
 use iced_widget::{button, column, combo_box, component, container, pick_list, row, slider, text, text_input};
 use iced_winit::core::alignment;
@@ -11,7 +13,7 @@ use iced_aw::{number_input, style::NumberInputStyles, SelectionList, style::Sele
 use iced_wgpu::wgpu::{self, util::DeviceExt, ShaderModuleDescriptor};
 use image::codecs::png;
 use image::imageops::replace;
-use iced::window;
+// use iced::{window, Element};
 use image::Rgba;
 use crate::scene::Parameters;
 use rfd;
@@ -39,10 +41,12 @@ pub enum Shader {
     sobel_edge_detection,
     difference_of_gaussians_DoG,
     flow_based_XDoG,
+    edge_direction,
+    bayer_dither,
 }
 
 impl Shader {
-    const ALL: [Shader; 7] = [
+    const ALL: [Shader; 9] = [
         Shader::none,
         Shader::invert,
         Shader::gaussian_blur,
@@ -50,11 +54,13 @@ impl Shader {
         Shader::sobel_edge_detection,
         Shader::difference_of_gaussians_DoG,
         Shader::flow_based_XDoG,
+        Shader::edge_direction,
+        Shader::bayer_dither,
     ];
 }
 
 impl Shader {
-    pub fn getIndex(&self) -> u32 {
+    pub fn get_index(&self) -> u32 {
         match self {
             Shader::none => 100,
             Shader::invert => 0,
@@ -63,6 +69,32 @@ impl Shader {
             Shader::sobel_edge_detection => 3,
             Shader::difference_of_gaussians_DoG => 4,
             Shader::flow_based_XDoG => 5,
+            Shader::edge_direction => 6,
+            Shader::bayer_dither => 7,
+        }
+    }
+
+    pub fn get_parameters<'a>(&self, controls: &Controls) -> iced_widget::Container<'a, Message, Theme, Renderer> {
+        match self {
+            Shader::none => container(column![]),
+            Shader::invert => container(column![]),
+            Shader::gaussian_blur => container(column![
+                row![number_input(controls.sigma1, 10.0, move |v| {Message::Sigma1Changed(v)}).step(0.1),text("sigma"),].width(500).spacing(10),
+            ]),
+            Shader::quantization => container(column![]),
+            Shader::sobel_edge_detection => container(column![]),
+            Shader::difference_of_gaussians_DoG => container(column![
+                row![number_input(controls.sigma1, 10.0, move |v| {Message::Sigma1Changed(v)}).step(0.1),text("sigma"),].width(500).spacing(10),
+                row![number_input(controls.tau, 0.3, move |v| {Message::TauChanged(v)}).step(0.01),text("tau"),].width(500).spacing(10),
+            ]),
+            Shader::flow_based_XDoG => container(column![
+                row![number_input(controls.sigma1, 10.0, move |v| {Message::Sigma1Changed(v)}).step(0.1),text("sigma"),].width(500).spacing(10),
+                row![number_input(controls.tau, 0.3, move |v| {Message::TauChanged(v)}).step(0.01),text("tau"),].width(500).spacing(10),
+                row![number_input(controls.gfact, 10.0, move |v| {Message::GFactChanged(v)}).step(0.5),text("gamma"),].width(500).spacing(10),
+                row![number_input(controls.num_gvf_iterations, 30, move |v| {Message::IsFactChanged(v)}).step(1),text("iterations"),].width(500).spacing(10)
+            ]),
+            Shader::edge_direction => container(column![]),
+            Shader::bayer_dither => container(column![]),
         }
     }
 }
@@ -80,6 +112,8 @@ impl std::fmt::Display for Shader {
                 Shader::sobel_edge_detection => "sobel edge detection",
                 Shader::difference_of_gaussians_DoG => "difference of gaussians DoG",
                 Shader::flow_based_XDoG => "flow based XDoG",
+                Shader::edge_direction => "edge direction",
+                Shader::bayer_dither => "bayer dither",
             }
         )
     }
@@ -136,7 +170,7 @@ impl Controls {
             tau: 0.075,
             gfact: 8.0,
             epsilon: 0.0001,
-            num_gvf_iterations: 30,
+            num_gvf_iterations: 15,
             enable_xdog: 1,
         }
     }
@@ -157,7 +191,7 @@ impl Controls {
             epsilon: self.epsilon,
             num_gvf_iterations: self.num_gvf_iterations,
             enable_xdog: self.enable_xdog,
-            shader_index: self.selected_shader.unwrap().getIndex(),
+            shader_index: self.selected_shader.unwrap().get_index(),
         }
     }
 }
@@ -235,37 +269,8 @@ impl Program for Controls {
         // let selected_image = self.selected_image;
 
         let shader_controls = column![
-            row![
-                pick_list(
-                    &Shader::ALL[..],
-                    self.selected_shader,
-                    Message::ShaderSelected,
-                )
-            ].width(200).spacing(10),
-            row![
-                number_input(sigma1, 10.0, move |v| {
-                    Message::Sigma1Changed(v)
-                }).step(0.1),
-                text("sigma"),
-            ].width(500).spacing(10),
-            row![
-                number_input(tau, 0.3, move |v| {
-                    Message::TauChanged(v)
-                }).step(0.01),
-                text("tau"),
-            ].width(500).spacing(10),
-            row![
-                number_input(gfact, 10.0, move |v| {
-                    Message::GFactChanged(v)
-                }).step(0.5),
-                text("gamma"),
-            ].width(500).spacing(10),
-            row![
-                number_input(num_gvf_iterations, 30, move |v| {
-                    Message::IsFactChanged(v)
-                }).step(1),
-                text("iterations"),
-            ].width(500).spacing(10)
+            selected_shader.unwrap().get_parameters(self),
+            row![pick_list(&Shader::ALL[..],self.selected_shader,Message::ShaderSelected,)].width(200).spacing(10),
         ]
         .width(500)
         .spacing(2);
@@ -283,7 +288,7 @@ impl Program for Controls {
                 container(column![shader_controls].spacing(10))
                     .padding(10)
                     .height(Length::Fill)
-                    .align_y(alignment::Vertical::Bottom)
+                    .align_y(alignment::Vertical::Bottom),
             ]).into()
         } else {
             container(row![]).into()
@@ -291,3 +296,10 @@ impl Program for Controls {
 
     }
 }
+
+
+
+// row![number_input(sigma1, 10.0, move |v| {Message::Sigma1Changed(v)}).step(0.1),text("sigma"),].width(500).spacing(10),
+// row![number_input(tau, 0.3, move |v| {Message::TauChanged(v)}).step(0.01),text("tau"),].width(500).spacing(10),
+// row![number_input(gfact, 10.0, move |v| {Message::GFactChanged(v)}).step(0.5),text("gamma"),].width(500).spacing(10),
+// row![number_input(num_gvf_iterations, 30, move |v| {Message::IsFactChanged(v)}).step(1),text("iterations"),].width(500).spacing(10)

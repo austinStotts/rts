@@ -1,8 +1,5 @@
 struct Parameters {
-    // radius1: f32,
     sigma1: f32,
-    // radius2: f32,
-    // sigma2: f32,
     tau: f32,
     gfact: f32,
     epsilon: f32,
