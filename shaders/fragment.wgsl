@@ -399,37 +399,70 @@ fn frag_main(@location(0) texcoord: vec2<f32>) -> @location(0) vec4<f32> {
         //          bayer dithering
 
 
+        // 1. Sample texture color
         var color = textureSample(inputTexture, sampler0, texcoord);
+
+        // 2. Get texture dimensions
         var ts = vec2<f32>(textureDimensions(inputTexture));
 
-        var bayer_matrix = array<vec4<f32>, 4>(
-            vec4<f32>( 1.0, 0.5, 0.3, 0.1 ),
-            vec4<f32>( 0.7, 0.5, 0.9, 1.0 ),
-            vec4<f32>( 0.1, 0.3, 0.3, 0.5 ),
-            vec4<f32>( 0.1, 1.0, 0.7, 1.0 ),
+        // 3. Define a larger Bayer matrix for luminance dithering
+        var bayer_matrix = array<vec4<f32>, 16>(
+            vec4<f32>(0.0078, 0.1406, 0.2734, 0.4062),
+            vec4<f32>(0.4390, 0.5718, 0.7046, 0.8374),
+            vec4<f32>(0.8702, 0.0039, 0.1367, 0.2795),
+            vec4<f32>(0.4023, 0.5351, 0.6679, 0.8007),
+            vec4<f32>(0.8335, 0.9663, 0.0991, 0.2319),
+            vec4<f32>(0.3667, 0.4995, 0.6323, 0.7651),
+            vec4<f32>(0.7019, 0.8347, 0.9675, 0.1003),
+            vec4<f32>(0.3347, 0.4675, 0.6003, 0.7331),
+            vec4<f32>(0.6691, 0.8019, 0.9347, 0.0675),
+            vec4<f32>(0.3019, 0.4347, 0.5675, 0.7003),
+            vec4<f32>(0.6367, 0.7695, 0.9023, 0.0351),
+            vec4<f32>(0.2695, 0.4023, 0.5351, 0.6679),
+            vec4<f32>(0.6043, 0.7371, 0.8699, 0.0027),
+            vec4<f32>(0.2371, 0.3700, 0.5028, 0.6356),
+            vec4<f32>(0.5718, 0.7046, 0.8374, 0.9702),
+            vec4<f32>(0.2046, 0.3374, 0.4702, 0.6030)
         );
-        
-        var coord = floor(texcoord * ts);
-        var tx = i32(f32(coord.x) % (2.0 * f32(ts.x)));
-        var ty = i32(f32(coord.y) % (2.0 * f32(ts.y)));
-        var indexx = (tx % 4);
-        var indexy = (ty % 4);
 
+        // 4. Calculate texture coordinates for Bayer matrix indexing
+        var coord = floor(texcoord * ts); // Use floor for integer coordinates
 
+        // 5. Tile the Bayer matrix based on texture coordinates (adjust factors for larger textures)
+        var tx = i32(f32(coord.x) % (f32(ts.x)));
+        var ty = i32(f32(coord.y) % (f32(ts.y)));
+
+        // 6. Get Bayer matrix index within the repeated pattern
+        var indexx = tx % 4; // Use 16 for the new matrix size
+        var indexy = ty % 4;
+
+        // 7. Look up dither value from the Bayer matrix
         var dither = bayer_matrix[indexy][indexx];
 
-        var fc = vec3<f32>(
-            max(min(color.r + dither - 0.5, 1.0), 0.0),
-            max(min(color.g + dither - 0.5, 1.0), 0.0),
-            max(min(color.b + dither - 0.5, 1.0), 0.0),
+        // 8. Calculate luminance of the color
+        var luminance = (color.rgb * vec3<f32>(0.2126, 0.7152, 0.0722));
+
+        // 9. Define dither threshold based on luminance (adjust factor for desired effect)
+        var ditherThreshold = 0.5 + luminance * 0.2;
+
+        // 10. Apply dithering to red, green, and blue channels (adjust blue channel dithering for different effects)
+        var fc = vec4<f32>(
+            max(min(color.r + dither - ditherThreshold.r, 1.0), 0.0),
+            max(min(color.g + dither - ditherThreshold.g, 1.0), 0.0),
+            max(min(color.b + dither - ditherThreshold.b, 1.0), 0.0),
+            max(min(color.a + dither - 0.5, 1.0), 0.0),
+             // Adjust dither factor for blue channel here
         );
 
-
-        if(color.a < params.tau) {
-            return color;
+        // 11. Check for alpha transparency (optional)
+        if (color.a < params.tau) {
+            return color; // Don't modify completely transparent pixels
         } else {
-            return vec4<f32>(fc, color.a);
+        // 12. Return the modified color with alpha preserved
+            return vec4<f32>(fc);
         }
+
+
         
     
     }
