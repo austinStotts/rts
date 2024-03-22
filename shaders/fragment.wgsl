@@ -399,38 +399,74 @@ fn frag_main(@location(0) texcoord: vec2<f32>) -> @location(0) vec4<f32> {
         //          bayer dithering
 
 
-        var color = textureSample(inputTexture, sampler0, texcoord);
-        var ts = vec2<f32>(textureDimensions(inputTexture));
+        // var color = textureSample(inputTexture, sampler0, texcoord);
+        // var ts = vec2<f32>(textureDimensions(inputTexture));
 
-        var bayer_matrix = array<vec4<f32>, 4>(
-            vec4<f32>( 1.0, 0.5, 0.3, 0.1 ),
-            vec4<f32>( 0.7, 0.5, 0.9, 1.0 ),
-            vec4<f32>( 0.1, 0.3, 0.3, 0.5 ),
-            vec4<f32>( 0.1, 1.0, 0.7, 1.0 ),
-        );
+        // var bayer_matrix = array<vec4<f32>, 4>(
+        //     vec4<f32>( 1.0, 0.5, 0.3, 0.1 ),
+        //     vec4<f32>( 0.7, 0.5, 0.9, 1.0 ),
+        //     vec4<f32>( 0.1, 0.3, 0.3, 0.5 ),
+        //     vec4<f32>( 0.1, 1.0, 0.7, 1.0 ),
+        // );
         
-        var coord = floor(texcoord * ts);
-        var tx = i32(f32(coord.x) % (2.0 * f32(ts.x)));
-        var ty = i32(f32(coord.y) % (2.0 * f32(ts.y)));
-        var indexx = (tx % 4);
-        var indexy = (ty % 4);
+        // var coord = floor(texcoord * ts);
+        // var tx = i32(f32(coord.x) % (2.0 * f32(ts.x)));
+        // var ty = i32(f32(coord.y) % (2.0 * f32(ts.y)));
+        // var indexx = (tx % 4);
+        // var indexy = (ty % 4);
 
 
-        var dither = bayer_matrix[indexy][indexx];
+        // var dither = bayer_matrix[indexy][indexx];
 
-        var fc = vec3<f32>(
-            max(min(color.r + dither - 0.5, 1.0), 0.0),
-            max(min(color.g + dither - 0.5, 1.0), 0.0),
-            max(min(color.b + dither - 0.5, 1.0), 0.0),
+        // var fc = vec3<f32>(
+        //     max(min(color.r + dither - 0.5, 1.0), 0.0),
+        //     max(min(color.g + dither - 0.5, 1.0), 0.0),
+        //     max(min(color.b + dither - 0.5, 1.0), 0.0),
+        // );
+
+
+        // if(color.a < params.tau) {
+        //     return color;
+        // } else {
+        //     return vec4<f32>(fc, color.a);
+        // }
+        
+        // Bayer dithering matrix (4x4)
+        var ditherMatrix = mat4x4<f32>(
+            vec4<f32>( 1.0/16.0,  9.0/16.0,  3.0/16.0, 11.0/16.0),
+            vec4<f32>(13.0/16.0,  5.0/16.0, 15.0/16.0,  7.0/16.0),
+            vec4<f32>( 4.0/16.0, 12.0/16.0,  2.0/16.0, 10.0/16.0),
+            vec4<f32>(16.0/16.0,  8.0/16.0, 14.0/16.0,  6.0/16.0) 
         );
 
 
-        if(color.a < params.tau) {
-            return color;
-        } else {
-            return vec4<f32>(fc, color.a);
+        var uv = texcoord.xy / vec2<f32>(textureDimensions(inputTexture));
+        var color = textureSample(inputTexture, sampler0, uv);
+
+        // Calculate matrix offset 
+        var matrixIndex = vec2<i32>(texcoord.xy % 4.0);
+        var threshold = ditherMatrix[matrixIndex.y][matrixIndex.x];
+
+        // Quantize color (simulate reduced pavarte)
+        var quantizedColor = (floor(color * 8.0) / 8.0); // Example: 8 color levels
+
+        // Apply dithering
+        if (color.r > threshold) {
+            quantizedColor.r += 0.125; // Push slightly if above threshold
         }
-        
+
+        if (color.g > threshold) {
+            quantizedColor.g+= 0.125; // Push slightly if above threshold
+        }
+
+        if (color.b > threshold) {
+            quantizedColor.b += 0.125; // Push slightly if above threshold
+        }
+        // Repeat similar logic for quantizedColor.g and quantizedColor.b
+
+        // textureStore(outputTexture, FragCoord.xy, vec4<f32>(quantizedColor, 1.0));
+        return vec4<f32>(quantizedColor.r,quantizedColor.g,quantizedColor.b, 1.0);
+    
     
     }
     else {

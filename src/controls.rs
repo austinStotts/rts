@@ -163,7 +163,7 @@ impl Controls {
             input: String::default(),
             shaders: combo_box::State::new(Shader::ALL.to_vec()),
             selected_shader: Some(Shader::none),
-            selected_image: String::from("C:/Users/astotts/rust/renderer/images/cat.png"),
+            selected_image: String::from("C:/Users/austin/rust/rts/images/cat.png"),
             did_change: false,
             show_ui: true,
             sigma1: 4.75,

@@ -298,7 +298,7 @@ fn build_pipeline(
     });
 
     // let img = image::load_from_memory(include_bytes!("../images/cat.png")).unwrap();
-    let img = image::open("C:/Users/astotts/rust/renderer/images/cat.png").expect("failed to open image");
+    let img = image::open("C:/Users/austin/rust/rts/images/cat.png").expect("failed to open image");
     let img_ = img.to_rgba8();
     let (mut width, mut height) = img_.dimensions();
     let image = img.resize(width, height, image::imageops::FilterType::Gaussian).to_rgba8();
