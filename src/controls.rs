@@ -95,7 +95,8 @@ impl Shader {
             ]),
             Shader::edge_direction => container(column![]),
             Shader::bayer_dither => container(column![
-                row![number_input(controls.tau, 1.0, move |v| {Message::TauChanged(v)}).step(0.1),text("tau"),].width(500).spacing(10),
+                row![number_input(controls.tau, 10.0, move |v| {Message::TauChanged(v)}).step(0.25),text("tau"),].width(500).spacing(10),
+                row![number_input(controls.colors, 128.0, move |v| {Message::ColorsChanged(v)}).step(1.0),text("colors"),].width(500).spacing(10),
             ]),
         }
     }
@@ -136,6 +137,7 @@ pub struct Controls {
     pub epsilon: f32,
     pub num_gvf_iterations: i32,
     pub enable_xdog: u32,
+    pub colors: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -146,6 +148,7 @@ pub enum Message {
     TauChanged(f32),
     GFactChanged(f32),
     IsFactChanged(i32),
+    ColorsChanged(f32),
     ShaderSelected(Shader),
     ImageChanger(),
     TakeScreenshot(),
@@ -165,7 +168,7 @@ impl Controls {
             input: String::default(),
             shaders: combo_box::State::new(Shader::ALL.to_vec()),
             selected_shader: Some(Shader::none),
-            selected_image: String::from("C:/Users/astotts/rust/rts/images/cat.png"),
+            selected_image: String::from("C:/Users/austin/rust/rts/images/cat.png"),
             did_change: false,
             show_ui: true,
             sigma1: 4.75,
@@ -174,6 +177,7 @@ impl Controls {
             epsilon: 0.0001,
             num_gvf_iterations: 15,
             enable_xdog: 1,
+            colors: 32.0,
         }
     }
 
@@ -193,6 +197,7 @@ impl Controls {
             epsilon: self.epsilon,
             num_gvf_iterations: self.num_gvf_iterations,
             enable_xdog: self.enable_xdog,
+            colors: self.colors,
             shader_index: self.selected_shader.unwrap().get_index(),
         }
     }
@@ -253,6 +258,9 @@ impl Program for Controls {
             }
             Message::ToggleUI() => {
                 self.show_ui = !self.show_ui;
+            }
+            Message::ColorsChanged(v) => {
+                self.colors = v;
             }
         }
 

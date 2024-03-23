@@ -11,6 +11,7 @@ struct Parameters {
     num_gvf_iterations: i32,
     enable_xdog: u32,
     shader_index: u32,
+    colors: f32,
 }
 
 @fragment
@@ -433,9 +434,47 @@ fn frag_main(@location(0) texcoord: vec2<f32>) -> @location(0) vec4<f32> {
         var luminance = (color.rgb * vec3<f32>(0.2126, 0.7152, 0.0722));
 
         var ditherFactor = clamp(vec3<f32>(1.0) - luminance, vec3<f32>(0.0), vec3<f32>(1.0));
-        var quantcolor = clamp(((color - threshold) * vec4<f32>(ditherFactor) * vec4<f32>(params.tau)), vec4<f32>(0.0), vec4<f32>(1.0));
+        var numColors = params.colors; // Example, change as needed
+        var newColor = floor(color * numColors) / numColors;
 
-        return vec4<f32>(quantcolor.r,quantcolor.g,quantcolor.b,1.0);
+        if (luminance.r == 0) {
+            return color;
+        }
+
+        if (luminance.r < 0.5) {
+            let ditherAmount = (color.r - threshold) * ditherFactor * params.tau;
+            newColor.r -= clamp(ditherAmount.r, -0.75, 0.0); // Allow darkening
+        } else { // Additive dithering for dark areas
+            let ditherAmount = (color.r - threshold) * ditherFactor * params.tau; 
+            newColor.r += clamp(ditherAmount.r, 0.0, 0.75); // Allow brightening
+        }
+
+        if (luminance.g < 0.5) {
+            let ditherAmount = (color.r - threshold) * ditherFactor * params.tau;
+            newColor.g -= clamp(ditherAmount.g, -0.75, 0.0); // Allow darkening
+        } else { // Additive dithering for dark areas
+            let ditherAmount = (color.r - threshold) * ditherFactor * params.tau; 
+            newColor.g += clamp(ditherAmount.g, 0.0, 0.75); // Allow brightening
+        }
+
+        if (luminance.b < 0.5) {
+            let ditherAmount = (color.r - threshold) * ditherFactor * params.tau;
+            newColor.b -= clamp(ditherAmount.b, -0.75, 0.0); // Allow darkening
+        } else { // Additive dithering for dark areas
+            let ditherAmount = (color.r - threshold) * ditherFactor * params.tau; 
+            newColor.b += clamp(ditherAmount.b, 0.0, 0.75); // Allow brightening
+        }
+
+
+
+
+
+        // var red = clamp((color.r + threshold) * ditherFactor.r * params.tau, 0.0, 1.0);
+        // var green = clamp((color.g + threshold) * ditherFactor.g * params.tau, 0.0, 1.0);
+        // var blue = clamp((color.b + threshold) * ditherFactor.b * params.tau, 0.0, 1.0);
+        // var quantcolor = clamp(((color - threshold) * vec4<f32>(ditherFactor) * vec4<f32>(params.tau)), vec4<f32>(0.0), vec4<f32>(1.0));
+
+        return vec4<f32>(newColor.r, newColor.g, newColor.b, 1.0);
     
     
     }

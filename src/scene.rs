@@ -14,6 +14,7 @@ pub struct Parameters {
     pub num_gvf_iterations: i32,
     pub enable_xdog: u32,
     pub shader_index: u32,
+    pub colors: f32,
 }
 
 
@@ -298,7 +299,7 @@ fn build_pipeline(
     });
 
     // let img = image::load_from_memory(include_bytes!("../images/cat.png")).unwrap();
-    let img = image::open("C:/Users/astotts/rust/rts/images/cat.png").expect("failed to open image");
+    let img = image::open("C:/Users/austin/rust/rts/images/cat.png").expect("failed to open image");
     let img_ = img.to_rgba8();
     let (mut width, mut height) = img_.dimensions();
     let image = img.resize(width, height, image::imageops::FilterType::Gaussian).to_rgba8();
@@ -401,6 +402,7 @@ fn build_pipeline(
         num_gvf_iterations: 30,
         enable_xdog: 1,
         shader_index: 0,
+        colors: 32.0,
     };
 
 
