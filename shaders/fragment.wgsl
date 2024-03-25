@@ -12,6 +12,7 @@ struct Parameters {
     enable_xdog: u32,
     shader_index: u32,
     colors: f32,
+    intensity: f32,
 }
 
 @fragment
@@ -477,6 +478,16 @@ fn frag_main(@location(0) texcoord: vec2<f32>) -> @location(0) vec4<f32> {
         return vec4<f32>(newColor.r, newColor.g, newColor.b, 1.0);
     
     
+    } else if (params.shader_index == 8u) {
+        let offset_strength = params.intensity;
+
+        // Sample each color channel with an arbitrary shift
+        return vec4<f32>(
+            textureSample(inputTexture, sampler0, texcoord + vec2<f32>(offset_strength, -offset_strength)).r,
+            textureSample(inputTexture, sampler0, texcoord + vec2<f32>(-offset_strength, 0.0)).g,
+            textureSample(inputTexture, sampler0, texcoord + vec2<f32>(0.0, offset_strength)).b,
+            1.0
+        );
     }
     else {
         return textureSample(inputTexture, sampler0, texcoord);

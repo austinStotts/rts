@@ -43,10 +43,11 @@ pub enum Shader {
     flow_based_XDoG,
     edge_direction,
     bayer_dither,
+    chromatic_aberration
 }
 
 impl Shader {
-    const ALL: [Shader; 9] = [
+    const ALL: [Shader; 10] = [
         Shader::none,
         Shader::invert,
         Shader::gaussian_blur,
@@ -56,6 +57,7 @@ impl Shader {
         Shader::flow_based_XDoG,
         Shader::edge_direction,
         Shader::bayer_dither,
+        Shader::chromatic_aberration,
     ];
 }
 
@@ -71,6 +73,7 @@ impl Shader {
             Shader::flow_based_XDoG => 5,
             Shader::edge_direction => 6,
             Shader::bayer_dither => 7,
+            Shader::chromatic_aberration => 8,
         }
     }
 
@@ -98,6 +101,9 @@ impl Shader {
                 row![number_input(controls.tau, 10.0, move |v| {Message::TauChanged(v)}).step(0.25),text("tau"),].width(500).spacing(10),
                 row![number_input(controls.colors, 128.0, move |v| {Message::ColorsChanged(v)}).step(1.0),text("colors"),].width(500).spacing(10),
             ]),
+            Shader::chromatic_aberration => container(column![
+                row![number_input(controls.intensity, 10.0, move |v| {Message::IntensityChange(v)}).step(0.001),text("intensity"),].width(500).spacing(10),
+            ]),
         }
     }
 }
@@ -117,6 +123,7 @@ impl std::fmt::Display for Shader {
                 Shader::flow_based_XDoG => "flow based XDoG",
                 Shader::edge_direction => "edge direction",
                 Shader::bayer_dither => "bayer dither",
+                Shader::chromatic_aberration => "chromatic aberration"
             }
         )
     }
@@ -138,6 +145,7 @@ pub struct Controls {
     pub num_gvf_iterations: i32,
     pub enable_xdog: u32,
     pub colors: f32,
+    pub intensity: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -153,6 +161,7 @@ pub enum Message {
     ImageChanger(),
     TakeScreenshot(),
     ToggleUI(),
+    IntensityChange(f32),
 }
 
 impl Controls {
@@ -168,7 +177,7 @@ impl Controls {
             input: String::default(),
             shaders: combo_box::State::new(Shader::ALL.to_vec()),
             selected_shader: Some(Shader::none),
-            selected_image: String::from("C:/Users/austin/rust/rts/images/cat.png"),
+            selected_image: String::from("C:/Users/astotts/rust/rts/images/cat.png"),
             did_change: false,
             show_ui: true,
             sigma1: 4.75,
@@ -178,6 +187,7 @@ impl Controls {
             num_gvf_iterations: 15,
             enable_xdog: 1,
             colors: 32.0,
+            intensity: 0.005,
         }
     }
 
@@ -199,6 +209,7 @@ impl Controls {
             enable_xdog: self.enable_xdog,
             colors: self.colors,
             shader_index: self.selected_shader.unwrap().get_index(),
+            intensity: self.intensity,
         }
     }
 }
@@ -261,6 +272,9 @@ impl Program for Controls {
             }
             Message::ColorsChanged(v) => {
                 self.colors = v;
+            }
+            Message::IntensityChange(v) => {
+                self.intensity = v;
             }
         }
 
